@@ -1,0 +1,22 @@
+{
+  "name": "node-git-version-tracker",
+  "version": "0.0.1",
+  "description": "A git based version tracker",
+  "main": "src/index.js",
+  "scripts": {
+    "lint": "eslint src",
+    "pretty": "prettier \"src/**/*.js\" --write"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jim-lake/node-git-version-tracker.git"
+  },
+  "author": {
+    "name": "Jim Lake"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "async": "^3.2.0",
+    "request": "^2.88.2"
+  }
+}
