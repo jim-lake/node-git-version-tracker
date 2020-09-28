@@ -1,10 +1,9 @@
-const client = require('./client');
-const server = require('./server');
+const { init: initClient, ...clientOther } = require('./client');
+const { setConfig: setConfigServer, ...serverOther } = require('./server');
 
-exports.initClient = client.init;
-exports.getGitHash = client.getGitHash;
-exports.sendPhonehome = client.sendPhonehome;
-exports.updateToHash = client.updateToHash;
-
-exports.initServer = server.init;
-exports.phonehomeHandler = server.phonehomeHandler;
+module.exports = {
+  initClient,
+  setConfigServer,
+  ...clientOther,
+  ...serverOther,
+};

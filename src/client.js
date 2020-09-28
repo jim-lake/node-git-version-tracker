@@ -21,8 +21,9 @@ let g_updateGitHash = null;
 let errorLog = _defaultErrorLog;
 
 let g_config = {
-  url: null,
+  packageName: '',
   repoDir: '.',
+  url: null,
   requestExtra: {},
   restartHandler: _defaultRestartHandler,
   interval: 0,
@@ -32,7 +33,7 @@ let g_config = {
 };
 
 function init(args, done) {
-  Object.extend(g_config, args);
+  Object.assign(g_config, args);
   if (args.errorLog) {
     errorLog = args.errorLog;
   }
@@ -52,7 +53,7 @@ function getUpdateGitHash() {
   return g_updateGitHash;
 }
 function isUpdateAvailable() {
-  return g_updateGitHash && g_updateGitHash !== g_currentGitHash;
+  return Boolean(g_updateGitHash && g_updateGitHash !== g_currentGitHash);
 }
 function needsRestart() {
   return g_currentGitHash !== g_bootGitHash;
@@ -93,6 +94,7 @@ function sendPhonehome(done) {
       git_hash: g_bootGitHash,
       ip_list: _getIPList(),
     },
+    method: 'POST',
     json: true,
     timeout: g_config.timeout,
     ...g_config.requestExtra,

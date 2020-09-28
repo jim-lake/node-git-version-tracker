@@ -1,6 +1,6 @@
 const async = require('async');
 
-exports.init = init;
+exports.setConfig = setConfig;
 exports.phonehomeHandler = phonehomeHandler;
 
 let g_config = {
@@ -10,8 +10,8 @@ let g_config = {
 };
 let errorLog = _defaultErrorLog;
 
-function init(args) {
-  Object.extend(g_config, args);
+function setConfig(args) {
+  Object.assign(g_config, args);
   if (args.errorLog) {
     errorLog = args.errorLog;
   }
@@ -43,7 +43,7 @@ function phonehomeHandler(req, res) {
           if (git_hash) {
             const sql = `
 INSERT INTO ${g_config.phonehomeTable} SET ?
-ON DUPLICATE KEY UPDATE ?
+ON DUPLICATE KEY UPDATE last_updated = NOW(), ?
 `;
             const new_obj = {
               package_name,
