@@ -4,13 +4,20 @@ const { join: pathJoin } = require('path');
 const request = require('request');
 
 exports.init = init;
-exports.getGitHash = getGitHash;
+exports.getConfig = getConfig;
+exports.getBootGitHash = getBootGitHash;
+exports.getUpdateGitHash = getUpdateGitHash;
+exports.isUpdateAvailable = isUpdateAvailable;
+exports.runUpdate = runUpdate;
+exports.needsRestart = needsRestart;
 exports.sendPhonehome = sendPhonehome;
 exports.updateToHash = updateToHash;
 
 const REST_TIMEOUT = 20 * 1000;
 
-let g_gitHash = null;
+let g_bootGitHash = null;
+let g_currentGitHash = null;
+let g_updateGitHash = null;
 let errorLog = _defaultErrorLog;
 
 let g_config = {
@@ -20,6 +27,8 @@ let g_config = {
   restartHandler: _defaultRestartHandler,
   interval: 0,
   timeout: REST_TIMEOUT,
+  autoUpdate: false,
+  autoRestart: false,
 };
 
 function init(args, done) {
@@ -27,16 +36,38 @@ function init(args, done) {
   if (args.errorLog) {
     errorLog = args.errorLog;
   }
-  getGitHash((err) => {
+  _readGitHash((err) => {
     done(err);
 
     sendPhonehome(_sendLater);
   });
 }
+function getConfig() {
+  return g_config;
+}
+function getBootGitHash() {
+  return g_bootGitHash;
+}
+function getUpdateGitHash() {
+  return g_updateGitHash;
+}
+function isUpdateAvailable() {
+  return g_updateGitHash && g_updateGitHash !== g_currentGitHash;
+}
+function needsRestart() {
+  return g_currentGitHash !== g_bootGitHash;
+}
+function runUpdate(done) {
+  if (isUpdateAvailable()) {
+    updateToHash(g_updateGitHash, done);
+  } else {
+    done('no_update');
+  }
+}
 
-function getGitHash(done) {
-  if (g_gitHash) {
-    done(null, g_gitHash);
+function _readGitHash(done) {
+  if (g_bootGitHash) {
+    done(null, g_bootGitHash);
   } else {
     var cmd = 'git log -n 1 --pretty=format:"%H"';
     const opts = {
@@ -46,9 +77,10 @@ function getGitHash(done) {
       if (err) {
         errorLog('getGitHash: failed with err:', err, stdout, stderr);
       } else {
-        g_gitHash = stdout.trim();
+        g_bootGitHash = stdout.trim();
+        g_currentGitHash = g_bootGitHash;
       }
-      done(err, g_gitHash);
+      done(err, g_bootGitHash);
     });
   }
 }
@@ -58,7 +90,7 @@ function sendPhonehome(done) {
     body: {
       package_name: g_config.packageName,
       hostname: os.hostname(),
-      git_hash: g_gitHash,
+      git_hash: g_bootGitHash,
       ip_list: _getIPList(),
     },
     json: true,
@@ -73,9 +105,16 @@ function sendPhonehome(done) {
     } else if (statusCode < 200 || statusCode >= 300) {
       errorLog('sendPhonehome: bad status:', statusCode);
       done(statusCode);
+    } else if (!body) {
+      done('bad_body');
     } else {
-      if (body && body.git_hash && body.git_hash !== g_gitHash) {
-        updateToHash(body.git_hash, done);
+      const { force_update, force_restart, git_hash } = body;
+      g_updateGitHash = git_hash;
+      if (force_restart) {
+        g_config.autoRestart = true;
+      }
+      if (isUpdateAvailable() && (g_config.autoUpdate || force_update)) {
+        updateToHash(g_updateGitHash, done);
       } else {
         done();
       }
@@ -84,7 +123,7 @@ function sendPhonehome(done) {
 }
 function updateToHash(git_hash, done) {
   const script = pathJoin(__dirname, '../scripts/git_update_to_hash.sh');
-  const cmd = `${script} ${git_hash} ${g_gitHash}`;
+  const cmd = `${script} ${git_hash} ${g_bootGitHash}`;
   const opts = {
     cwd: g_config.repoDir,
   };
@@ -100,7 +139,12 @@ function updateToHash(git_hash, done) {
       );
       done(err);
     } else {
-      g_config.restartHandler();
+      g_currentGitHash = git_hash;
+      if (g_config.autoRestart) {
+        g_config.restartHandler(done);
+      } else {
+        done();
+      }
     }
   });
 }
