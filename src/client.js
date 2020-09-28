@@ -184,8 +184,9 @@ function _getIPList() {
 function _defaultErrorLog(...args) {
   console.error(...args);
 }
-function _defaultRestartHandler() {
+function _defaultRestartHandler(done) {
   setTimeout(() => {
     process.exit(0);
   }, 100);
+  done();
 }
