@@ -1,6 +1,6 @@
 {
   "name": "node-git-version-tracker",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A git based version tracker",
   "main": "src/index.js",
   "scripts": {

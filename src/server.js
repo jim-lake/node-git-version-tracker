@@ -2,6 +2,8 @@ const async = require('async');
 
 exports.setConfig = setConfig;
 exports.phonehomeHandler = phonehomeHandler;
+exports.findVersionForHost = findVersionForHost;
+exports.fetchClientsByPackage = fetchClientsByPackage;
 
 let g_config = {
   pool: null,
@@ -77,7 +79,7 @@ ORDER BY match_priority DESC, hostname_regex ASC
             if (err) {
               errorLog('phonehomeHandler: find version err:', err);
             } else {
-              const found = _findMatch(results, hostname);
+              const found = findVersionForHost(results, hostname);
               if (found) {
                 body.git_hash = found.git_hash;
               }
@@ -97,8 +99,63 @@ ORDER BY match_priority DESC, hostname_regex ASC
   }
 }
 
-function _findMatch(results, hostname) {
-  let ret = results.find((result) => {
+function fetchClientsByPackage(package_name, done) {
+  let client_list = [];
+  async.series(
+    [
+      (done) => {
+        const sql = `
+SELECT hostname, created_time, last_updated, git_hash, ip_list
+FROM ${g_config.phonehomeTable}
+WHERE package_name = ?
+`;
+        g_config.pool.query(sql, [package_name], (err, results) => {
+          if (err) {
+            errorLog('fetchClientsByPackage: phonehome fetch err:', err);
+          } else {
+            client_list = results;
+          }
+          done(err);
+        });
+      },
+      (done) => {
+        if (client_list.length > 0) {
+          const sql = `
+SELECT hostname_regex, git_hash
+FROM ${g_config.versionTable}
+WHERE package_name = ?
+ORDER BY match_priority DESC, hostname_regex ASC
+`;
+          g_config.pool.query(sql, [package_name], (err, results) => {
+            if (err) {
+              errorLog('fetchClientsByPackage: version fetch err:', err);
+            } else {
+              client_list.forEach((client) => {
+                const found = findVersionForHost(results, client.hostname);
+                if (found) {
+                  client.needs_update = found.git_hash !== client.git_hash;
+                  client.update_git_hash = found.git_hash;
+                } else {
+                  client.needs_update = false;
+                  client.update_git_hash = null;
+                }
+              });
+            }
+            done(err);
+          });
+        } else {
+          done();
+        }
+      },
+    ],
+    (err) => {
+      done(err, client_list);
+    }
+  );
+}
+
+function findVersionForHost(package_version_results, hostname) {
+  let ret = package_version_results.find((result) => {
     const { hostname_regex } = result;
     const regex = new RegExp(hostname_regex);
     return regex.test(hostname);
