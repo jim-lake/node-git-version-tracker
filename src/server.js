@@ -49,7 +49,7 @@ ON DUPLICATE KEY UPDATE last_updated = NOW(), ?
 `;
             const new_obj = {
               package_name,
-              hostname,
+              hostname: hostname.split('.')[0],
               git_hash,
               ip_list,
             };

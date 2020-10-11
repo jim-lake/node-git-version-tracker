@@ -25,6 +25,7 @@ let g_config = {
   repoDir: '.',
   url: null,
   requestExtra: {},
+  scriptPrefix: '',
   restartHandler: _defaultRestartHandler,
   interval: 0,
   timeout: REST_TIMEOUT,
@@ -125,7 +126,10 @@ function sendPhonehome(done) {
 }
 function updateToHash(git_hash, done) {
   const script = pathJoin(__dirname, '../scripts/git_update_to_hash.sh');
-  const cmd = `${script} ${git_hash} ${g_bootGitHash}`;
+  let cmd = `${script} ${git_hash} ${g_bootGitHash}`;
+  if (g_config.scriptPrefix) {
+    cmd = g_config.scriptPrefix + ' ' + cmd;
+  }
   const opts = {
     cwd: g_config.repoDir,
   };
